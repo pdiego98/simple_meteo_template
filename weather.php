@@ -58,6 +58,19 @@ function weatherInfo(int $code): array
     };
 }
 
+function weatherArt(int $code): array
+{
+    return match ($code) {
+        0, 1 => ['   \\   /   ', '    .-.    ', ' - (   ) - ', "    `-'    ", '   /   \\   '],
+        2 => ['   \\  /    ', ' _ /"".-.  ', '   \\_(   ).', '   /(___(__)', '            '],
+        3, 45, 48 => ['            ', '    .--.    ', ' .-(    ).  ', '(___.__)__) ', '            '],
+        51, 53, 55, 61, 63, 65, 80, 81, 82 => ['    .--.    ', ' .-(    ).  ', '(___.__)__) ', '  / / / /   ', ' / / / /    '],
+        71, 73, 75 => ['    .--.    ', ' .-(    ).  ', '(___.__)__) ', '   *  *  *  ', '  *  *  *   '],
+        95, 96, 99 => ['    .--.    ', ' .-(    ).  ', '(___.__)__) ', '  / / / /   ', '  / / / /   '],
+        default => ['   .--.     ', '  (    )    ', ' (      )   ', '    `--     ', '            '],
+    };
+}
+
 function windDirection(float $degrees): string
 {
     $directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
@@ -69,9 +82,32 @@ function rounded(mixed $value): string
     return is_numeric($value) ? (string) round((float) $value) : '--';
 }
 
-function asciiLine(string $label, string $value): string
+function centered(string $value, int $width): string
 {
-    return sprintf("  %-14s %s\n", $label, $value);
+    $value = substr($value, 0, $width);
+    $left = (int) floor(($width - strlen($value)) / 2);
+    return str_repeat(' ', max(0, $left)) . $value . str_repeat(' ', max(0, $width - $left - strlen($value)));
+}
+
+function forecastBlock(array $hourly, int $index, int $width = 28): array
+{
+    [$condition] = weatherInfo((int) $hourly['weather_code'][$index]);
+    $art = weatherArt((int) $hourly['weather_code'][$index]);
+    $temperature = rounded($hourly['temperature_2m'][$index]) . ' C';
+    $wind = rounded($hourly['wind_speed_10m'][$index] ?? null) . ' km/h';
+    $direction = windDirection((float) ($hourly['wind_direction_10m'][$index] ?? 0));
+    $rain = number_format((float) ($hourly['precipitation'][$index] ?? 0), 1) . ' mm | ' . (int) ($hourly['precipitation_probability'][$index] ?? 0) . '%';
+    $lines = [centered($condition, $width), centered($art[0], $width), centered($art[1], $width), centered($art[2], $width), centered($art[3], $width), centered($art[4], $width), centered($temperature, $width), centered($direction . ' ' . $wind, $width), centered($rain, $width)];
+    return $lines;
+}
+
+function printForecastRow(array $blocks, int $line, int $width = 28): void
+{
+    echo '|';
+    foreach ($blocks as $block) {
+        echo ' ' . $block[$line] . ' |';
+    }
+    echo "\n";
 }
 
 try {
@@ -102,7 +138,7 @@ try {
         'latitude' => $latitude,
         'longitude' => $longitude,
         'current' => 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,wind_speed_10m,wind_direction_10m,surface_pressure,weather_code',
-        'hourly' => 'temperature_2m,precipitation_probability,weather_code',
+        'hourly' => 'temperature_2m,precipitation_probability,precipitation,wind_speed_10m,wind_direction_10m,weather_code',
         'daily' => 'weather_code,temperature_2m_max,temperature_2m_min',
         'timezone' => 'auto',
         'forecast_days' => 3,
@@ -113,30 +149,47 @@ try {
 
     header('Content-Type: text/plain; charset=us-ascii');
     header('Cache-Control: public, max-age=300');
-    echo "Meteo per $name" . ($region !== '' ? ", $region" : '') . "\n";
-    echo str_repeat('-', 44) . "\n";
-    echo asciiLine('Condizioni:', "$condition ($description)");
-    echo asciiLine('Temperatura:', rounded($current['temperature_2m']) . " C");
-    echo asciiLine('Percepita:', rounded($current['apparent_temperature']) . " C");
-    echo asciiLine('Umidita:', rounded($current['relative_humidity_2m']) . "%");
-    echo asciiLine('Vento:', rounded($current['wind_speed_10m']) . " km/h " . windDirection((float) $current['wind_direction_10m']));
-    echo asciiLine('Precipitazioni:', number_format((float) $current['precipitation'], 1) . " mm");
-    echo asciiLine('Pressione:', rounded($current['surface_pressure']) . " hPa");
-    echo "\nPrevisioni orarie\n" . str_repeat('-', 44) . "\n";
+    echo "Weather report: $name" . ($region !== '' ? ", $region" : '') . "\n\n";
+    $currentArt = weatherArt((int) $current['weather_code']);
+    $currentLines = [
+        $currentArt[0] . '     ' . $condition,
+        $currentArt[1] . '     ' . sprintf('%+d(%+d) C', round((float) $current['temperature_2m']), round((float) $current['apparent_temperature'])),
+        $currentArt[2] . '     ' . windDirection((float) $current['wind_direction_10m']) . ' ' . rounded($current['wind_speed_10m']) . ' km/h',
+        $currentArt[3] . '     ' . rounded($current['relative_humidity_2m']) . '% humidity',
+        $currentArt[4] . '     ' . number_format((float) $current['precipitation'], 1) . ' mm',
+    ];
+    echo implode("\n", $currentLines) . "\n";
+    echo 'Feels like: ' . rounded($current['apparent_temperature']) . " C | Pressure: " . rounded($current['surface_pressure']) . " hPa\n\n";
 
     $hourly = $weather['hourly'];
     $hourIndex = array_search($current['time'], $hourly['time'], true);
     $hourIndex = $hourIndex === false ? 0 : $hourIndex;
-    for ($index = $hourIndex; $index < min($hourIndex + 8, count($hourly['time'])); $index++) {
-        [$hourCondition] = weatherInfo((int) $hourly['weather_code'][$index]);
-        $rain = (int) ($hourly['precipitation_probability'][$index] ?? 0);
-        echo sprintf("  %s  %3s C  %-20s %2d%% rain\n", substr($hourly['time'][$index], 11, 5), rounded($hourly['temperature_2m'][$index]), $hourCondition, $rain);
-    }
-
-    echo "\nPrevisioni giornaliere\n" . str_repeat('-', 44) . "\n";
-    foreach ($weather['daily']['time'] as $index => $date) {
-        [$dayCondition] = weatherInfo((int) $weather['daily']['weather_code'][$index]);
-        echo sprintf("  %s  %3s / %3s C  %s\n", $date, rounded($weather['daily']['temperature_2m_max'][$index]), rounded($weather['daily']['temperature_2m_min'][$index]), $dayCondition);
+    echo "Forecast\n\n";
+    $width = 28;
+    $dayHours = ['06:00' => 'Morning', '12:00' => 'Noon', '18:00' => 'Evening', '00:00' => 'Night'];
+    foreach ($weather['daily']['time'] as $date) {
+        $indices = [];
+        foreach ($dayHours as $hour => $label) {
+            $wanted = $date . 'T' . $hour;
+            $found = array_search($wanted, $hourly['time'], true);
+            if ($found !== false) {
+                $indices[] = $found;
+            }
+        }
+        if (count($indices) !== 4) {
+            continue;
+        }
+        echo '+' . str_repeat('-', ($width + 2) * 4 + 1) . "\n";
+        echo '|';
+        foreach ($dayHours as $label) {
+            echo centered($label, $width + 1) . '|';
+        }
+        echo "\n+" . str_repeat('-', ($width + 2) * 4 + 1) . "\n";
+        $blocks = array_map(fn (int $index): array => forecastBlock($hourly, $index, $width), $indices);
+        for ($line = 0; $line < count($blocks[0]); $line++) {
+            printForecastRow($blocks, $line, $width);
+        }
+        echo '+' . str_repeat('-', ($width + 2) * 4 + 1) . "\n\n";
     }
     echo "\nSource: open-meteo.com\n";
 } catch (Throwable $error) {
