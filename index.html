@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Meteo essenziale e embeddabile basato su Open-Meteo">
+  <title>meteo / live forecast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <main class="weather-shell" aria-live="polite">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Meteo home"><span class="brand-mark">☼</span><span>meteo<span class="brand-dot">.</span>local</span></a>
+      <div class="topbar-meta"><span class="status-dot"></span><span id="updated-label">live data</span><span class="slash">/</span><span>open-meteo</span></div>
+    </header>
+
+    <section class="search-row" aria-label="Cerca una località">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input id="location-input" type="search" placeholder="Cerca città o località" autocomplete="off">
+        <button id="search-button" class="icon-button" type="button" aria-label="Cerca">↵</button>
+        <div id="search-results" class="search-results" hidden></div>
+      </div>
+      <button id="locate-button" class="outline-button" type="button"><span>◎</span> usa la mia posizione</button>
+    </section>
+
+    <section class="hero-grid">
+      <div class="location-block">
+        <p class="eyebrow">report meteo / <span id="local-time">--:--</span></p>
+        <h1 id="location-name">Arezzo</h1>
+        <p id="location-region" class="location-region">Toscana, Italia <span class="coordinates">43.47° N / 11.85° E</span></p>
+        <div class="condition-line"><span id="condition-icon" class="weather-icon">☀</span><span id="condition-label">Caricamento dati...</span></div>
+      </div>
+      <div class="temperature-block">
+        <div class="temperature"><span id="temperature-value">--</span><sup>°C</sup></div>
+        <p>temperatura attuale</p>
+        <div class="feels-like">percepita <strong id="feels-like-value">--°</strong></div>
+      </div>
+    </section>
+
+    <section class="metrics-grid" aria-label="Dati meteo attuali">
+      <article class="metric"><span class="metric-label">umidità</span><strong id="humidity-value">--%</strong><span class="metric-note">aria relativa</span></article>
+      <article class="metric"><span class="metric-label">vento</span><strong id="wind-value">-- <small>km/h</small></strong><span id="wind-direction" class="metric-note">--</span></article>
+      <article class="metric"><span class="metric-label">precipitazioni</span><strong id="rain-value">-- <small>mm</small></strong><span class="metric-note">ultima ora</span></article>
+      <article class="metric"><span class="metric-label">pressione</span><strong id="pressure-value">-- <small>hPa</small></strong><span class="metric-note">al livello del mare</span></article>
+    </section>
+
+    <section class="forecast-section">
+      <div class="section-heading"><div><p class="eyebrow">prossime ore</p><h2>andamento di oggi</h2></div><span class="section-index">01 / 02</span></div>
+      <div id="hourly-list" class="hourly-list"></div>
+    </section>
+
+    <section class="forecast-section days-section">
+      <div class="section-heading"><div><p class="eyebrow">orizzonte</p><h2>previsioni 7 giorni</h2></div><span class="section-index">02 / 02</span></div>
+      <div id="daily-list" class="daily-list"></div>
+    </section>
+
+    <footer class="footer"><span>© 2026 meteo.local</span><span class="footer-line"></span><span>dati: open-meteo.com</span><span class="embed-hint">embed ready <code>?embed=1</code></span></footer>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+</body>
+</html>
